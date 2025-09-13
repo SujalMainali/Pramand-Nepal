@@ -22,7 +22,7 @@ export default function RegisterPage() {
     setError(""); // clear error while typing
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
@@ -30,8 +30,26 @@ export default function RegisterPage() {
       return;
     }
 
-    console.log("Form submitted:", formData);
-    // frontend only: no API call yet
+    try {
+      const response = await fetch("/api/userData", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to register");
+      }
+
+      const data = await response.json();
+      console.log("Registration successful:", data);
+      // Optionally, redirect or show success message
+    } catch (error) {
+      console.error("Error:", error);
+      setError("An error occurred during registration.");
+    }
   };
 
   return (
@@ -133,11 +151,10 @@ export default function RegisterPage() {
               value={formData.confirmPassword}
               onChange={handleChange}
               required
-              className={`mt-1 w-full rounded-md border px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${
-                error
-                  ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-              }`}
+              className={`mt-1 w-full rounded-md border px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 ${error
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                }`}
             />
           </div>
 
