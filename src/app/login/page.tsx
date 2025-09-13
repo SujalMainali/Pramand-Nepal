@@ -16,11 +16,32 @@ export default function LoginPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Login submitted:", formData);
-    // frontend only: no API call yet
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Login failed");
+        return;
+      }
+
+      window.location.href = "/";
+    } catch (err) {
+      console.error("❌ Login error:", err);
+      alert("Something went wrong. Try again.");
+    }
   };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">

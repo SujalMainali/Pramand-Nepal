@@ -44,8 +44,9 @@ export default function RegisterPage() {
       }
 
       const data = await response.json();
-      console.log("Registration successful:", data);
-      // Optionally, redirect or show success message
+
+      window.location.href = "/";
+
     } catch (error) {
       console.error("Error:", error);
       setError("An error occurred during registration.");

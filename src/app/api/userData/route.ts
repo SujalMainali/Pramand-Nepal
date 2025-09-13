@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { connectDB } from "@/database/mongoose";
 import User from "@/database/models/User";
 import isEmail from "validator/lib/isEmail";
+import { createSession } from "@/utilities/auth";
 
 type ReqBody = {
     firstName?: string;
@@ -53,6 +54,8 @@ export async function POST(req: Request) {
         const created = await User.create({ name, email, hashedPassword });
 
         const user = created.toJSON();
+
+        await createSession(user._id.toString());
 
         return NextResponse.json(
             {
