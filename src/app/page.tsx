@@ -19,8 +19,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
       <Header />
-
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-6xl pt-10 mx-auto px-4">
         {/* My Uploaded Videos */}
         <ContentSection
           title="My Uploaded Videos"
