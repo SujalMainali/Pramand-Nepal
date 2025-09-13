@@ -1,7 +1,7 @@
 // lib/mongodb.ts
 import mongoose from "mongoose";
 
-let isConnected = false; // Track connection status
+let isConnected = false;
 
 export const connectDB = async (): Promise<void> => {
     if (isConnected) {
@@ -10,9 +10,7 @@ export const connectDB = async (): Promise<void> => {
     }
 
     try {
-        await mongoose.connect(process.env.MONGODB_URI as string, {
-            dbName: process.env.MONGODB_DB,
-        });
+        await mongoose.connect(process.env.MONGODB_URI as string);
 
         isConnected = mongoose.connection.readyState === 1;
         console.log("🚀 MongoDB connected successfully");
