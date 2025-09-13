@@ -2,13 +2,11 @@
 import { Readable, PassThrough } from "node:stream";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegStatic from "ffmpeg-static";
-import ffprobeStatic from "@ffprobe-installer/ffprobe";
 import { put } from "@vercel/blob";
 import { connectDB } from "@/database/mongoose";
 import Thumbnail from "@/database/models/Thumbnail";
 
 ffmpeg.setFfmpegPath(ffmpegStatic as string);
-ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 type GenerateThumbOpts = {
     /** Where to capture the frame, in seconds (default: 5s) */
