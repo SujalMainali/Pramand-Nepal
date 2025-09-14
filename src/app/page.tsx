@@ -14,7 +14,7 @@ export default function HomePage() {
     (async () => {
       try {
         setLoading((s) => ({ ...s, mine: true }));
-        const res = await fetch("/api/videos/list", { cache: "no-store" });
+        const res = await fetch("/api/videos/self", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           setMyVideos(data.items ?? []);

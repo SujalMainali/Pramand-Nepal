@@ -21,7 +21,7 @@ export default function ContentSection({ title, videos, showUpload = false }: Co
   const router = useRouter();
 
   const handleUploadClick = () => {
-    router.push("/upload-video"); // <-- use your actual upload route
+    router.push("/upload"); // <-- use your actual upload route
   };
 
   return (
