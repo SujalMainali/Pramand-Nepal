@@ -1,43 +1,55 @@
 // app/api/videos/handle-upload/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
 import mongoose from "mongoose";
 
-import { withAuthNext } from "@/utilities/withAuth";
 import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
+import { getCurrentUser } from "@/utilities/auth";
 
-export const POST = withAuthNext(async ({ req, user }) => {
-    const body = (await req.json()) as HandleUploadBody;
+export async function POST(req: NextRequest) {
+    let body: HandleUploadBody;
+    try {
+        body = (await req.json()) as HandleUploadBody;
+    } catch {
+        return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
 
     try {
         const json = await handleUpload({
             body,
-            // NextRequest is compatible with Request; cast for TS
-            request: req as Request,
+            // NextRequest is a Request subclass; cast keeps TS happy with the client lib
+            request: req as unknown as Request,
 
-            // 1) Issue a short-lived token to upload to Vercel Blob
+            // Phase 1 (browser -> this route): authenticate BEFORE issuing token
             onBeforeGenerateToken: async (_pathname, clientPayload) => {
-                // Optional: connectDB() here if you enforce quotas/limits by role
+                const user = await getCurrentUser();
+                if (!user) throw new Error("Unauthorized");
+
                 const cp = clientPayload ? JSON.parse(clientPayload) : {};
 
                 return {
                     allowedContentTypes: ["video/mp4", "video/webm", "video/ogg"],
                     addRandomSuffix: true,
-                    // Carry identity + client payload forward; read back in onUploadCompleted
                     tokenPayload: JSON.stringify({
-                        userId: String(user._id),
-                        role: (user.role as "admin" | "moderator" | "general") ?? "general",
+                        userId: String((user as any)._id),
+                        role: ((user as any).role as "admin" | "moderator" | "general") ?? "general",
                         clientPayload: cp,
                     }),
                 };
             },
 
-            // 2) After Blob stores the file, persist a Video doc
-            onUploadCompleted: async ({ blob, tokenPayload }: { blob: PutBlobResult; tokenPayload?: any }) => {
+            // Phase 2 (Vercel -> this route): no cookies; rely on the tokenPayload we created above
+            onUploadCompleted: async ({
+                blob,
+                tokenPayload,
+            }: {
+                blob: PutBlobResult;
+                tokenPayload?: string | Record<string, unknown> | null;
+            }) => {
                 await connectDB();
 
                 const parsed =
@@ -61,7 +73,6 @@ export const POST = withAuthNext(async ({ req, user }) => {
 
                 if (!userId) throw new Error("Missing userId");
 
-                // Visibility rule: general → hidden; staff → ready
                 const status = role === "general" ? "hidden" : "ready";
 
                 await Video.create({
@@ -87,4 +98,4 @@ export const POST = withAuthNext(async ({ req, user }) => {
         console.error("handle-upload error:", err);
         return NextResponse.json({ error: err?.message ?? "Upload error" }, { status: 400 });
     }
-});
+}
