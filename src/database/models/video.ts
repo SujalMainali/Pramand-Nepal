@@ -27,8 +27,8 @@ const VideoSchema = new Schema(
         // Keep status only if you want a workflow
         status: {
             type: String,
-            enum: ['uploading', 'processing', 'ready', 'failed'],
-            default: 'ready',
+            enum: ['ready', 'hidden'],
+            default: 'hidden',
             index: true,
         },
     },

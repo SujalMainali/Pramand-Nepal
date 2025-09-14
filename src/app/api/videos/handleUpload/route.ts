@@ -7,7 +7,7 @@ import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
 import { getCurrentUser } from "@/utilities/auth";
 import type { PutBlobResult } from "@vercel/blob";
-
+import mongoose from "mongoose";
 
 export async function POST(req: Request) {
     const body = (await req.json()) as HandleUploadBody;
@@ -17,53 +17,63 @@ export async function POST(req: Request) {
             body,
             request: req,
 
-            // 1) Authenticate/authorize BEFORE issuing a token
-            onBeforeGenerateToken: async (pathname, clientPayload /*, multipart */) => {
+            onBeforeGenerateToken: async (_pathname, clientPayload) => {
                 const user = await getCurrentUser();
                 if (!user) throw new Error("Unauthorized");
+                await connectDB();
 
-                // clientPayload is a JSON string from your client (or null)
                 const cp = clientPayload ? JSON.parse(clientPayload) : {};
 
+                // Pass role through so we can decide status after upload
                 return {
                     allowedContentTypes: ["video/mp4", "video/webm", "video/ogg"],
-                    addRandomSuffix: true, // avoid overwrites & caching issues :contentReference[oaicite:3]{index=3}
+                    addRandomSuffix: true,
                     tokenPayload: JSON.stringify({
                         userId: String(user._id),
-                        clientPayload: cp, // store as object; no need to JSON.stringify again
+                        role: user.role ?? "general",
+                        clientPayload: cp,
                     }),
-                    // Optionally: cacheControlMaxAge: 60,
                 };
             },
 
-            // 2) Persist metadata AFTER Vercel finishes receiving the file
-            onUploadCompleted: async ({ blob, tokenPayload }: { blob: PutBlobResult; tokenPayload?: string | null }) => {
+            onUploadCompleted: async ({ blob, tokenPayload }: { blob: PutBlobResult; tokenPayload?: any }) => {
                 await connectDB();
 
-                const parsed = tokenPayload ? JSON.parse(tokenPayload) : {};
-                const { userId, clientPayload = {} } = parsed as {
+                const parsed =
+                    tokenPayload == null
+                        ? {}
+                        : typeof tokenPayload === "string"
+                            ? JSON.parse(tokenPayload)
+                            : tokenPayload;
+
+                const { userId, role, clientPayload } = parsed as {
                     userId?: string;
-                    clientPayload?: { title?: string; address?: string };
+                    role?: "admin" | "moderator" | "general";
+                    clientPayload?: { title?: string; address?: string; durationSec?: number; width?: number; height?: number };
                 };
 
-                if (!userId) throw new Error("Missing userId in token payload");
+                if (!userId) throw new Error("Missing userId");
 
-                const video = await Video.create({
-                    ownerId: userId,
-                    title: clientPayload.title ?? "",
-                    address: clientPayload.address, // ensure your schema has this field
+                // ✨ Visibility rule:
+                // - general → hidden
+                // - moderator/admin → ready
+                const status = role === "general" ? "hidden" : "ready";
+
+                await Video.create({
+                    ownerId: new mongoose.Types.ObjectId(userId),
+                    title: (clientPayload?.title ?? "").toString().trim().slice(0, 200),
+                    address: (clientPayload?.address ?? "").toString().trim().slice(0, 200),
                     blobUrl: blob.url,
-                    downloadUrl: blob.downloadUrl, // forces download if you ever need it
+                    downloadUrl: `${blob.url}?download=1`,
                     blobPath: blob.pathname,
                     contentType: blob.contentType,
-                    sizeBytes: null, // ✅ correct field
+                    sizeBytes: (blob as any).size ?? null,
+                    durationSec: clientPayload?.durationSec ?? null,
+                    width: clientPayload?.width ?? null,
+                    height: clientPayload?.height ?? null,
+                    status,
                     uploadedAt: new Date(),
-                    status: "ready",
                 });
-
-                if (!video) {
-                    throw new Error("Failed to create video record in the database");
-                }
             },
         });
 

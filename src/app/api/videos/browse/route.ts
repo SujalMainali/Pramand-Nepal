@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
-import Thumbnail from "@/database/models/Thumbnail";
+import "@/database/models/thumbnail";
 
 export const runtime = "nodejs";
 
@@ -11,6 +11,7 @@ export async function GET() {
         await connectDB();
 
         const items = await Video.aggregate([
+            { $match: { status: "ready" } }, // ← enforce visibility here
             {
                 $lookup: {
                     from: "thumbnails",
@@ -24,7 +25,7 @@ export async function GET() {
                     coverThumb: {
                         $first: {
                             $filter: { input: "$thumbnails", as: "t", cond: { $eq: ["$$t.isCover", true] } },
-                        }
+                        },
                     },
                     anyThumb: { $first: "$thumbnails" },
                 },
@@ -41,7 +42,7 @@ export async function GET() {
                 },
             },
             { $sort: { createdAt: -1 } },
-            { $limit: 60 },
+            { $limit: 100 },
         ]);
 
         return NextResponse.json({ items });

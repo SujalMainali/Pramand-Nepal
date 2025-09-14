@@ -32,6 +32,7 @@ export async function POST(req: Request) {
         const email = body.email?.trim().toLowerCase() ?? "";
         const password = body.password ?? "";
         const confirmPassword = body.confirmPassword ?? "";
+        const role = "general"; // default role
 
         // Basic validation
         if (!firstName || !lastName) return badRequest("First and last name are required.");
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
         const name = `${firstName} ${lastName}`.trim();
 
         // Create user
-        const created = await User.create({ name, email, hashedPassword });
+        const created = await User.create({ name, email, hashedPassword, role });
 
         const user = created.toJSON();
 
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
                     id: user._id,
                     name: user.name,
                     email: user.email,
+                    role: user.role,
                     createdAt: user.createdAt,
                     updatedAt: user.updatedAt,
                 },

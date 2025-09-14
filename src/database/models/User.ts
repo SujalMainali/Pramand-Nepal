@@ -25,6 +25,9 @@ const UserSchema = new Schema(
             required: true,
             minlength: 60,     // bcrypt = 60 chars
         },
+
+        role: { type: String, enum: ["admin", "moderator", "general"], default: "general", index: true },
+        isSuspended: { type: Boolean, default: false },
     },
     {
         timestamps: true,
