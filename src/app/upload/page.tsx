@@ -1,7 +1,7 @@
 // app/upload-video/page.tsx (or your component)
 "use client";
 import { Toaster } from "react-hot-toast";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
 import { upload } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
@@ -28,7 +28,7 @@ export default function UploadVideo() {
             // 👇 Client upload to Vercel Blob; your API route will issue the token
             const blob: PutBlobResult = await upload(pathname, videoFile, {
                 access: "public",
-                handleUploadUrl: "/api/videos/handle-upload",
+                handleUploadUrl: "/api/videos/handleUpload",
                 // This payload is echoed back to your server in onUploadCompleted
                 clientPayload: JSON.stringify({
                     title: description,   // map description -> title in DB
@@ -36,8 +36,9 @@ export default function UploadVideo() {
                 }),
             });
 
-            // `blob.url` and `blob.downloadUrl` are ready
-            toast.success("Video uploaded successfully!");
+            toast.success(`Video uploaded! ✅ URL: ${blob.url}`);
+            console.log("Upload details:", blob);
+
 
             // Reset form
             setVideoFile(null);

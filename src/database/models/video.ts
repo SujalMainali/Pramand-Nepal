@@ -10,13 +10,14 @@ const VideoSchema = new Schema(
         },
 
         title: { type: String, trim: true, default: '' },
+        address: { type: String, trim: true, default: "" },
 
         blobUrl: { type: String, required: true },
         downloadUrl: { type: String, required: true },
         blobPath: { type: String, required: true, unique: true },
 
         contentType: { type: String, required: true },
-        sizeBytes: { type: Number, required: true, min: 1 },
+        sizeBytes: { type: Number, required: false, min: 1 },
 
         // Optional technical metadata
         durationSec: { type: Number, min: 0, default: null },
