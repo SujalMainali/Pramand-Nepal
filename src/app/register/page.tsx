@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -30,6 +31,7 @@ export default function RegisterPage() {
       return;
     }
 
+
     try {
       const response = await fetch("/api/userData", {
         method: "POST",
@@ -39,22 +41,25 @@ export default function RegisterPage() {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error("Failed to register");
+        throw new Error(data.error || "Failed to register.");
       }
 
-      const data = await response.json();
+      toast.success("Registration successful!");
 
       window.location.href = "/";
 
     } catch (error) {
       console.error("Error:", error);
-      setError("An error occurred during registration.");
+      setError(error instanceof Error ? error.message : "An unexpected error occurred.");
     }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+      <Toaster position="top-right" />
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
         <h1 className="mb-6 text-center text-2xl font-bold text-gray-800">
           Register
