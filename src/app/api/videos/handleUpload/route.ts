@@ -7,7 +7,7 @@ import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
 import { getCurrentUser } from "@/utilities/auth";
 import type { PutBlobResult } from "@vercel/blob";
-import { generateAndSaveThumbnail } from "@/utilities/thumbnail";
+
 
 export async function POST(req: Request) {
     const body = (await req.json()) as HandleUploadBody;
@@ -64,15 +64,6 @@ export async function POST(req: Request) {
                 if (!video) {
                     throw new Error("Failed to create video record in the database");
                 }
-
-
-                // Consider offloading thumbnails to a background job/queue to avoid request timeouts.
-                await generateAndSaveThumbnail(video.id, blob.downloadUrl, {
-                    timecodeSec: 5,
-                    maxWidth: 640,
-                    isCover: true,
-                    nameHint: "cover",
-                });
             },
         });
 

@@ -1,109 +1,65 @@
-// lib/thumbnails.ts
-import 'server-only';
-import { PassThrough } from "node:stream";
-import { put } from "@vercel/blob";
-import { connectDB } from "@/database/mongoose";
-import Thumbnail from "@/database/models/Thumbnail";
+// lib/generateThumbnail.ts
+export async function generateThumbnailFromFile(
+    file: File,
+    opts?: { timeSec?: number; maxWidth?: number; quality?: number; mime?: "image/jpeg" | "image/webp" }
+): Promise<{ blob: Blob; width: number; height: number; timeSec: number }> {
+    const timeSec = opts?.timeSec ?? 2;
+    const maxWidth = opts?.maxWidth ?? 640;
+    const mime = opts?.mime ?? "image/jpeg";
+    const quality = opts?.quality ?? 0.8;
 
-/**
- * Lazy-load ffmpeg & the static binary ONLY at runtime.
- * This avoids Turbopack trying to parse native/binary assets at build time.
- */
-async function getFfmpeg() {
-    const [{ default: ffmpeg }, { default: ffmpegStatic }] = await Promise.all([
-        import('fluent-ffmpeg'),
-        import('ffmpeg-static'),
-    ]);
+    const url = URL.createObjectURL(file);
+    try {
+        const video = document.createElement("video");
+        video.src = url;
+        video.preload = "metadata";
+        video.muted = true;
+        video.playsInline = true; // iOS friendliness
 
-    if (!ffmpegStatic) {
-        throw new Error("ffmpeg-static binary path not resolved");
+        await new Promise<void>((resolve, reject) => {
+            const onLoaded = () => resolve();
+            const onError = () => reject(new Error("Failed to load video metadata"));
+            video.addEventListener("loadedmetadata", onLoaded, { once: true });
+            video.addEventListener("error", onError, { once: true });
+        });
+
+        // Clamp seek time to duration range
+        const seekTo = Math.min(Math.max(timeSec, 0), Math.max(video.duration - 0.1, 0));
+        video.currentTime = seekTo;
+
+        await new Promise<void>((resolve, reject) => {
+            const onSeeked = () => resolve();
+            const onError = () => reject(new Error("Failed to seek video"));
+            video.addEventListener("seeked", onSeeked, { once: true });
+            video.addEventListener("error", onError, { once: true });
+        });
+
+        // Compute target canvas size (keep aspect ratio)
+        const srcW = video.videoWidth;
+        const srcH = video.videoHeight;
+        const scale = Math.min(1, maxWidth / srcW);
+        const dstW = Math.max(1, Math.round(srcW * scale));
+        const dstH = Math.max(1, Math.round(srcH * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = dstW;
+        canvas.height = dstH;
+
+        const ctx = canvas.getContext("2d", { willReadFrequently: false });
+        if (!ctx) throw new Error("Canvas 2D context not available");
+
+        ctx.drawImage(video, 0, 0, dstW, dstH);
+
+        const blob: Blob = await new Promise((resolve, reject) =>
+            canvas.toBlob(
+                (b) => (b ? resolve(b) : reject(new Error("Failed to create thumbnail blob"))),
+                mime,
+                quality
+            )
+        );
+
+        return { blob, width: dstW, height: dstH, timeSec: seekTo };
+    } finally {
+        URL.revokeObjectURL(url);
     }
-    ffmpeg.setFfmpegPath(ffmpegStatic as string);
-
-    return ffmpeg;
-}
-
-type GenerateThumbOpts = {
-    timecodeSec?: number;
-    maxWidth?: number;
-    isCover?: boolean;
-    nameHint?: string;
-};
-
-/**
- * Generates a JPEG thumbnail from a video URL, uploads it to Vercel Blob,
- * and saves a Thumbnail doc linked to the provided videoId.
- */
-export async function generateAndSaveThumbnail(
-    videoId: string,
-    videoDownloadUrl: string,
-    {
-        timecodeSec = 5,
-        maxWidth = 640,
-        isCover = true,
-        nameHint,
-    }: GenerateThumbOpts = {}
-) {
-    await connectDB();
-
-    // 1) Extract a JPEG frame into a Buffer
-    const imageBuffer: Buffer = await frameToJpegBuffer(videoDownloadUrl, {
-        timecodeSec,
-        maxWidth,
-    });
-
-    // 2) Upload JPEG to Vercel Blob
-    const safeTime = Math.max(0, Math.floor(timecodeSec));
-    const base = nameHint?.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-_]/g, "") || "thumb";
-    const path = `thumbs/${videoId}_${base}_${safeTime}s.jpg`;
-
-    const uploaded = await put(path, imageBuffer, {
-        access: "public",
-        contentType: "image/jpeg",
-    });
-
-    // 3) (Skipping dimension probe to avoid extra native deps)
-    const width = null, height = null;
-
-    // 4) Persist Thumbnail doc
-    const thumbDoc = await Thumbnail.create({
-        videoId,
-        url: uploaded.url,
-        path: uploaded.pathname,
-        width,
-        height,
-        isCover,
-        timecodeSec: safeTime,
-    });
-
-    return thumbDoc.toJSON();
-}
-
-/** Extract one JPEG frame into a Buffer using ffmpeg, seeking at timecodeSec */
-async function frameToJpegBuffer(
-    inputUrl: string,
-    { timecodeSec, maxWidth }: { timecodeSec: number; maxWidth: number }
-): Promise<Buffer> {
-    const ffmpeg = await getFfmpeg();
-
-    return new Promise<Buffer>((resolve, reject) => {
-        const pass = new PassThrough();
-        const chunks: Buffer[] = [];
-
-        pass.on("data", (chunk) => chunks.push(chunk));
-        pass.on("end", () => resolve(Buffer.concat(chunks)));
-        pass.on("error", reject);
-
-        ffmpeg(inputUrl)
-            .inputOptions([`-ss ${Math.max(0, timecodeSec)}`]) // seek first
-            .outputOptions([
-                "-vframes 1", // one frame
-                "-f image2", // image muxer
-                `-vf scale=${maxWidth}:-1`, // keep aspect ratio
-                "-q:v 2", // quality (2 high, 31 worst)
-            ])
-            .outputFormat("mjpeg") // JPEG
-            .on("error", reject)
-            .pipe(pass, { end: true });
-    });
 }

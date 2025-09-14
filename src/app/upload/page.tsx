@@ -5,6 +5,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { upload } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
+import { generateThumbnailFromFile } from "@/utilities/thumbnail";
 
 export default function UploadVideo() {
     const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -26,7 +27,7 @@ export default function UploadVideo() {
             const pathname = `videos/${videoFile.name}`;
 
             // 👇 Client upload to Vercel Blob; your API route will issue the token
-            const blob: PutBlobResult = await upload(pathname, videoFile, {
+            const videoBlob: PutBlobResult = await upload(pathname, videoFile, {
                 access: "public",
                 handleUploadUrl: "/api/videos/handleUpload",
                 // This payload is echoed back to your server in onUploadCompleted
@@ -36,8 +37,33 @@ export default function UploadVideo() {
                 }),
             });
 
-            toast.success(`Video uploaded! ✅ URL: ${blob.url}`);
-            console.log("Upload details:", blob);
+            toast.success(`Video uploaded! ✅ URL: ${videoBlob.url}`);
+            console.log("Upload details:", videoBlob);
+
+            // Create a cover at ~2s, max 640px wide
+            const thumb = await generateThumbnailFromFile(videoFile, {
+                timeSec: 2,
+                maxWidth: 640,
+                mime: "image/jpeg",
+                quality: 0.82,
+            });
+
+            // Deterministic path per video (nice for overwrite/regenerate flows)
+            const thumbPath = `thumbnails/${videoBlob.pathname.replace(/^videos\//, "").replace(/\.[^.]+$/, "")}-cover.jpg`;
+
+            const thumbBlob: PutBlobResult = await upload(thumbPath, thumb.blob, {
+                access: "public",
+                handleUploadUrl: "/api/thumbnails/handle-upload",
+                clientPayload: JSON.stringify({
+                    // let server join thumbnail -> video
+                    videoBlobPath: videoBlob.pathname,    // <-- critical: unique on Video
+                    width: thumb.width,
+                    height: thumb.height,
+                    timecodeSec: thumb.timeSec,
+                    isCover: true,                        // or false if this is just an extra
+                }),
+            });
+
 
 
             // Reset form
