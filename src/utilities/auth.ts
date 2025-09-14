@@ -47,7 +47,7 @@ export async function getCurrentUser() {
     if (!session) return null;
 
     const user = await User.findById(session.userId)
-        .select({ name: 1, email: 1, createdAt: 1 })
+        .select({ name: 1, email: 1, createdAt: 1, role: 1 })
         .lean({ virtuals: true });
 
     return user ?? null;
