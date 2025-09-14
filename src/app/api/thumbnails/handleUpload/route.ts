@@ -6,21 +6,25 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
 
 import { connectDB } from "@/database/mongoose";
-import { getCurrentUser } from "@/utilities/auth";
 import Video from "@/database/models/video";
 import Thumbnail from "@/database/models/Thumbnail";
+import { getCurrentUser } from "@/utilities/auth";
 
 export async function POST(req: NextRequest) {
-    const body = (await req.json()) as HandleUploadBody;
+    let body: HandleUploadBody;
+    try {
+        body = (await req.json()) as HandleUploadBody;
+    } catch {
+        return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    }
 
     try {
         const json = await handleUpload({
             body,
-            request: req,
+            // NextRequest extends Request; cast keeps TS happy with the client lib
+            request: req as unknown as Request,
 
-            // 1) Auth + token config
-            // app/api/thumbnails/handle-upload/route.ts
-
+            // Phase 1: browser → this route (has cookies) → authenticate here
             onBeforeGenerateToken: async (_pathname, clientPayload) => {
                 const user = await getCurrentUser();
                 if (!user) throw new Error("Unauthorized");
@@ -31,28 +35,30 @@ export async function POST(req: NextRequest) {
                     allowedContentTypes: ["image/jpeg", "image/webp", "image/png"],
                     addRandomSuffix: false,
                     maximumSizeInBytes: 2_000_000,
-                    // ✅ Stringify explicitly
                     tokenPayload: JSON.stringify({
-                        userId: String(user._id),
-                        clientPayload: cp,
+                        userId: String((user as any)._id),
+                        clientPayload: cp, // { videoBlobPath, width, height, timecodeSec, isCover }
                     }),
                 };
             },
 
-
-            // 2) After Blob has stored the file, persist in Mongo
-            onUploadCompleted: async ({ blob, tokenPayload }) => {
+            // Phase 2: Vercel → this route (no cookies) → rely on the tokenPayload we issued above
+            onUploadCompleted: async ({
+                blob,
+                tokenPayload,
+            }: {
+                blob: PutBlobResult;
+                tokenPayload?: string | Record<string, unknown> | null;
+            }) => {
                 await connectDB();
 
-                // ✅ Parse robustly
-                const parsed: unknown =
+                const parsed =
                     tokenPayload == null
                         ? {}
                         : typeof tokenPayload === "string"
                             ? JSON.parse(tokenPayload)
                             : tokenPayload;
 
-                // Type helpers
                 type ThumbPayload = {
                     videoBlobPath: string;
                     width?: number;
@@ -61,54 +67,37 @@ export async function POST(req: NextRequest) {
                     isCover?: boolean;
                 };
 
-                const { userId, clientPayload } = (parsed as {
+                const { userId, clientPayload } = parsed as {
                     userId?: string;
                     clientPayload?: ThumbPayload;
-                });
+                };
 
                 if (!userId) throw new Error("Missing userId");
                 if (!clientPayload?.videoBlobPath) throw new Error("Missing videoBlobPath");
 
-                // Now safely destructure (no default = {})
-                const {
-                    videoBlobPath,
-                    width,
-                    height,
-                    timecodeSec,
-                    isCover,
-                } = clientPayload;
+                const { videoBlobPath, width, height, timecodeSec, isCover } = clientPayload;
 
-                // Find the target video by its unique blobPath + ownership
-                const video = await Video.findOne({
-                    blobPath: videoBlobPath,
-                    ownerId: userId,
-                }).select("_id");
+                // Ensure the uploader owns the target video
+                const video = await Video.findOne({ blobPath: videoBlobPath, ownerId: userId }).select("_id");
+                if (!video) throw new Error("Video not found or not owned by user");
 
-                if (!video) {
-                    throw new Error("Video not found or not owned by user");
-                }
-
-                // If this should be the cover, unset any existing cover first to satisfy unique index
+                // If this should be the cover, unset any existing cover first (unique partial index)
                 if (isCover) {
-                    await Thumbnail.updateMany(
-                        { videoId: video._id, isCover: true },
-                        { $set: { isCover: false } }
-                    );
+                    await Thumbnail.updateMany({ videoId: video._id, isCover: true }, { $set: { isCover: false } });
                 }
 
-                // Create the thumbnail document
+                // Create the thumbnail (handle race on unique cover)
                 try {
                     await Thumbnail.create({
                         videoId: video._id,
                         url: blob.url,
-                        path: blob.pathname,           // unique
+                        path: blob.pathname, // unique
                         width,
                         height,
                         isCover,
                         timecodeSec,
                     });
                 } catch (e: any) {
-                    // If unique cover race happens, fall back to non-cover
                     if (isCover && /E11000/.test(String(e?.message))) {
                         await Thumbnail.create({
                             videoId: video._id,
@@ -129,6 +118,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(json);
     } catch (err: any) {
         console.error("thumbnail handle-upload error:", err);
-        return NextResponse.json({ error: err.message ?? "Upload error" }, { status: 400 });
+        return NextResponse.json({ error: err?.message ?? "Upload error" }, { status: 400 });
     }
 }

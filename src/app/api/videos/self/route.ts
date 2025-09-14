@@ -1,20 +1,17 @@
 // app/api/videos/self/route.ts
-import { NextResponse } from "next/server";
-import mongoose from "mongoose";
-import { connectDB } from "@/database/mongoose";
-import { getCurrentUser } from "@/utilities/auth";
-import Video from "@/database/models/video";
-import Thumbnail from "@/database/models/Thumbnail";
-
 export const runtime = "nodejs";
 
-export async function GET() {
-    try {
-        const user = await getCurrentUser();
-        if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+import { NextResponse } from "next/server";
+import mongoose from "mongoose";
+import { withAuthNext } from "@/utilities/withAuth";
+import { connectDB } from "@/database/mongoose";
+import Video from "@/database/models/video";
+import "@/database/models/Thumbnail"; // ensure model is registered for $lookup
 
+export const GET = withAuthNext(async ({ user }) => {
+    try {
         await connectDB();
-        const ownerId = new mongoose.Types.ObjectId(String((user as any)._id));
+        const ownerId = new mongoose.Types.ObjectId(String(user._id));
 
         const items = await Video.aggregate([
             { $match: { ownerId } },
@@ -31,7 +28,7 @@ export async function GET() {
                     coverThumb: {
                         $first: {
                             $filter: { input: "$thumbnails", as: "t", cond: { $eq: ["$$t.isCover", true] } },
-                        }
+                        },
                     },
                     anyThumb: { $first: "$thumbnails" },
                 },
@@ -53,7 +50,7 @@ export async function GET() {
 
         return NextResponse.json({ items });
     } catch (e: any) {
-        console.error("videos/list error:", e);
+        console.error("videos/self error:", e);
         return NextResponse.json({ error: e?.message ?? "Server error" }, { status: 500 });
     }
-}
+});

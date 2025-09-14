@@ -1,17 +1,18 @@
 // app/api/videos/browse/route.ts
-import { NextResponse } from "next/server";
-import { connectDB } from "@/database/mongoose";
-import Video from "@/database/models/video";
-import Thumbnail from "@/database/models/Thumbnail";
-
 export const runtime = "nodejs";
 
-export async function GET() {
+import { NextResponse } from "next/server";
+import { withAuthNext } from "@/utilities/withAuth";
+import { connectDB } from "@/database/mongoose";
+import Video from "@/database/models/video";
+import "@/database/models/Thumbnail"; // register model for $lookup
+
+export const GET = withAuthNext(async () => {
     try {
         await connectDB();
 
         const items = await Video.aggregate([
-            { $match: { status: "ready" } }, // ← enforce visibility here
+            { $match: { status: "ready" } }, // public-ready only
             {
                 $lookup: {
                     from: "thumbnails",
@@ -50,4 +51,4 @@ export async function GET() {
         console.error("videos/browse error:", e);
         return NextResponse.json({ error: e?.message ?? "Server error" }, { status: 500 });
     }
-}
+});
