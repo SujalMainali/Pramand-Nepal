@@ -7,16 +7,14 @@ import { withAuthNext } from "@/utilities/withAuth";
 import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
 
-export const POST = withAuthNext(
+export const POST = withAuthNext<{ id: string }>( // 👈 generic
     async ({ params }) => {
-        const id = params?.id;
-        if (!id || !mongoose.isValidObjectId(id)) {
+        const id = params!.id;
+        if (!mongoose.isValidObjectId(id)) {
             return NextResponse.json({ error: "Invalid id" }, { status: 400 });
         }
 
         await connectDB();
-
-        // Only approve items currently hidden
         const updated = await Video.findOneAndUpdate(
             { _id: id, status: "hidden" },
             { $set: { status: "ready", updatedAt: new Date() } },
@@ -33,5 +31,5 @@ export const POST = withAuthNext(
 
         return NextResponse.json({ ok: true, video: updated });
     },
-    { roles: ["admin", "moderator"] } // ✅ only staff can approve
+    { roles: ["admin", "moderator"] }
 );
