@@ -1,3 +1,4 @@
+"use client";
 // lib/generateThumbnail.ts
 export async function generateThumbnailFromFile(
     file: File,

@@ -53,7 +53,7 @@ export default function UploadVideo() {
 
             const thumbBlob: PutBlobResult = await upload(thumbPath, thumb.blob, {
                 access: "public",
-                handleUploadUrl: "/api/thumbnails/handle-upload",
+                handleUploadUrl: "/api/thumbnails/handleUpload",
                 clientPayload: JSON.stringify({
                     // let server join thumbnail -> video
                     videoBlobPath: videoBlob.pathname,    // <-- critical: unique on Video
