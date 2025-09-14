@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
                     _id: 1,
                     title: 1,
                     createdAt: 1,
+                    blobUrl: 1,          // <-- include
+                    downloadUrl: 1,
                     // expose only harmless, public metadata; keep actual media behind another route
                     "thumbnail.url": 1,
                 },
