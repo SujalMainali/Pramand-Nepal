@@ -17,7 +17,7 @@ type Item = {
 export default function ModerationPage() {
     const [items, setItems] = useState<Item[]>([]);
     const [loading, setLoading] = useState(true);
-    
+
     async function load() {
         try {
             setLoading(true);
@@ -48,8 +48,29 @@ export default function ModerationPage() {
     }
 
     async function handleDecline(id: string) {
-        // api to decline videos
+        if (!confirm("Are you sure you want to decline this video?")) return;
+
+        try {
+            const res = await fetch(`/api/videos/${id}/delete`, {
+                method: "DELETE",
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data?.error || "Failed to decline video");
+                return;
+            }
+
+            // Remove the declined video from the UI list
+            setItems((prev) => prev.filter((v) => v._id !== id));
+
+            alert("Video declined successfully!");
+        } catch (err) {
+            console.error(err);
+            alert("Something went wrong while declining the video");
+        }
     }
+
 
     return (
         <div className="min-h-screen bg-gray-50 pb-10">
