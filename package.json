@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.6",
+    "@upstash/redis": "^1.35.3",
     "@vercel/blob": "^1.1.1",
     "bcryptjs": "^3.0.2",
     "mongoose": "^8.18.1",

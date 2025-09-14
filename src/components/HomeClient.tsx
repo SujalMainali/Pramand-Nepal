@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import ContentSection, { VideoItem } from "../components/ContentSection";
 
+// --- simple in-memory cache for the public browse feed ---
+let browseCache: { items: VideoItem[]; ts: number } | null = null;
+const BROWSE_TTL_MS = 60_000; // keep in sync with API s-maxage=60
+
 export default function HomeClient() {
     const [myVideos, setMyVideos] = useState<VideoItem[]>([]);
     const [allVideos, setAllVideos] = useState<VideoItem[]>([]);
     const [loading, setLoading] = useState({ mine: true, all: true });
 
     useEffect(() => {
+        // --- private list: fetch fresh every time (no-store) ---
         (async () => {
             try {
                 setLoading((s) => ({ ...s, mine: true }));
@@ -19,11 +24,26 @@ export default function HomeClient() {
             }
         })();
 
+        // --- public browse: use in-memory cache + CDN-cached response ---
         (async () => {
+            const now = Date.now();
+            const cached = browseCache && now - browseCache.ts < BROWSE_TTL_MS;
+
+            if (cached) {
+                // instant render from memory
+                setAllVideos(browseCache!.items);
+                setLoading((s) => ({ ...s, all: false }));
+                return;
+            }
+
             try {
                 setLoading((s) => ({ ...s, all: true }));
-                const res = await fetch("/api/videos/browse", { cache: "no-store" });
-                setAllVideos(res.ok ? (await res.json()).items ?? [] : []);
+                // IMPORTANT: no `cache: "no-store"` here—let CDN/browser caching work
+                const res = await fetch("/api/videos/browse");
+                const items: VideoItem[] = res.ok ? (await res.json()).items ?? [] : [];
+                // update component + cache
+                setAllVideos(items);
+                browseCache = { items, ts: now };
             } finally {
                 setLoading((s) => ({ ...s, all: false }));
             }
