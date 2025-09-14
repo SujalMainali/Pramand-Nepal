@@ -3,10 +3,18 @@ import { Readable, PassThrough } from "node:stream";
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegStatic from "ffmpeg-static";
 import { put } from "@vercel/blob";
+import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { connectDB } from "@/database/mongoose";
 import Thumbnail from "@/database/models/Thumbnail";
 
+
+if (!ffmpegStatic) {
+    // Helpful during local dev when bundler tree-shakes incorrectly
+    throw new Error("ffmpeg-static binary path not resolved");
+}
+
 ffmpeg.setFfmpegPath(ffmpegStatic as string);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 type GenerateThumbOpts = {
     /** Where to capture the frame, in seconds (default: 5s) */
