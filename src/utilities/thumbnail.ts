@@ -1,38 +1,38 @@
 // lib/thumbnails.ts
-import { Readable, PassThrough } from "node:stream";
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegStatic from "ffmpeg-static";
+import 'server-only';
+import { PassThrough } from "node:stream";
 import { put } from "@vercel/blob";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { connectDB } from "@/database/mongoose";
 import Thumbnail from "@/database/models/Thumbnail";
 
+/**
+ * Lazy-load ffmpeg & the static binary ONLY at runtime.
+ * This avoids Turbopack trying to parse native/binary assets at build time.
+ */
+async function getFfmpeg() {
+    const [{ default: ffmpeg }, { default: ffmpegStatic }] = await Promise.all([
+        import('fluent-ffmpeg'),
+        import('ffmpeg-static'),
+    ]);
 
-if (!ffmpegStatic) {
-    // Helpful during local dev when bundler tree-shakes incorrectly
-    throw new Error("ffmpeg-static binary path not resolved");
+    if (!ffmpegStatic) {
+        throw new Error("ffmpeg-static binary path not resolved");
+    }
+    ffmpeg.setFfmpegPath(ffmpegStatic as string);
+
+    return ffmpeg;
 }
 
-ffmpeg.setFfmpegPath(ffmpegStatic as string);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
-
 type GenerateThumbOpts = {
-    /** Where to capture the frame, in seconds (default: 5s) */
     timecodeSec?: number;
-    /** Max width of the thumbnail; height is auto to preserve aspect (default: 640) */
     maxWidth?: number;
-    /** Mark this one as the cover image */
     isCover?: boolean;
-    /** Optional explicit output filename stem; we’ll add .jpg */
     nameHint?: string;
 };
 
 /**
  * Generates a JPEG thumbnail from a video URL, uploads it to Vercel Blob,
  * and saves a Thumbnail doc linked to the provided videoId.
- *
- * @param videoId Mongo ObjectId (string) for the Video document
- * @param videoDownloadUrl Public (or signed) URL to the video file (use Blob's downloadUrl)
  */
 export async function generateAndSaveThumbnail(
     videoId: string,
@@ -46,11 +46,13 @@ export async function generateAndSaveThumbnail(
 ) {
     await connectDB();
 
-    // 1) Use ffmpeg to grab a single frame as JPEG into a Buffer
-    const imageBuffer: Buffer = await frameToJpegBuffer(videoDownloadUrl, { timecodeSec, maxWidth });
+    // 1) Extract a JPEG frame into a Buffer
+    const imageBuffer: Buffer = await frameToJpegBuffer(videoDownloadUrl, {
+        timecodeSec,
+        maxWidth,
+    });
 
     // 2) Upload JPEG to Vercel Blob
-    // Use a stable path like: thumbs/<videoId>_<timecode>s_<random>.jpg
     const safeTime = Math.max(0, Math.floor(timecodeSec));
     const base = nameHint?.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-_]/g, "") || "thumb";
     const path = `thumbs/${videoId}_${base}_${safeTime}s.jpg`;
@@ -60,14 +62,14 @@ export async function generateAndSaveThumbnail(
         contentType: "image/jpeg",
     });
 
-    // 3) (Optional) Get dimensions with ffprobe (cheap) — or skip for speed
-    const { width, height } = await probeImageSize(imageBuffer).catch(() => ({ width: null, height: null }));
+    // 3) (Skipping dimension probe to avoid extra native deps)
+    const width = null, height = null;
 
-    // 4) Save Thumbnail doc
+    // 4) Persist Thumbnail doc
     const thumbDoc = await Thumbnail.create({
         videoId,
         url: uploaded.url,
-        path: uploaded.pathname, // or uploaded.url; pathname is unique within your store
+        path: uploaded.pathname,
         width,
         height,
         isCover,
@@ -82,6 +84,8 @@ async function frameToJpegBuffer(
     inputUrl: string,
     { timecodeSec, maxWidth }: { timecodeSec: number; maxWidth: number }
 ): Promise<Buffer> {
+    const ffmpeg = await getFfmpeg();
+
     return new Promise<Buffer>((resolve, reject) => {
         const pass = new PassThrough();
         const chunks: Buffer[] = [];
@@ -91,24 +95,15 @@ async function frameToJpegBuffer(
         pass.on("error", reject);
 
         ffmpeg(inputUrl)
-            .inputOptions([`-ss ${Math.max(0, timecodeSec)}`]) // seek to time
+            .inputOptions([`-ss ${Math.max(0, timecodeSec)}`]) // seek first
             .outputOptions([
-                "-vframes 1",            // one frame
-                "-f image2",             // force image muxer
-                `-vf scale=${maxWidth}:-1`, // resize to maxWidth, preserve aspect
-                "-q:v 2",                // quality (2 = high, 31 = worst)
+                "-vframes 1", // one frame
+                "-f image2", // image muxer
+                `-vf scale=${maxWidth}:-1`, // keep aspect ratio
+                "-q:v 2", // quality (2 high, 31 worst)
             ])
-            .outputFormat("mjpeg")     // JPEG
+            .outputFormat("mjpeg") // JPEG
             .on("error", reject)
             .pipe(pass, { end: true });
     });
-}
-
-/** Rough image dimensions via ffprobe over a buffer (optional) */
-async function probeImageSize(buffer: Buffer): Promise<{ width: number | null; height: number | null }> {
-    // ffprobe doesn't read from Buffer directly. Two options:
-    // 1) Skip dimensions (fastest).
-    // 2) Use a lightweight parser (like sharp/metadata) — adds a heavy dep.
-    // For serverless simplicity, we’ll skip and return nulls here.
-    return { width: null, height: null };
 }
