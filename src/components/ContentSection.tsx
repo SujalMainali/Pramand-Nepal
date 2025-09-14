@@ -64,7 +64,7 @@ export default function ContentSection({ title, videos, showUpload = false }: Co
       {showUpload && videos.length > 0 && (
         <div className="mt-6 flex justify-center">
           <a
-            href="/uploads"
+            href="/uploaded"
             className="px-6 py-2 rounded-full border-2 border-blue-500 text-blue-600 font-semibold hover:bg-blue-500 hover:text-white transition-all"
           >
             View All
