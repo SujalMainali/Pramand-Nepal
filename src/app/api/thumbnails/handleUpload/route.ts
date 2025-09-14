@@ -4,34 +4,31 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
+import { withAuthNext } from "@/utilities/withAuth";
 
 import { connectDB } from "@/database/mongoose";
-import { getCurrentUser } from "@/utilities/auth";
 import Video from "@/database/models/video";
 import Thumbnail from "@/database/models/Thumbnail";
 
-export async function POST(req: NextRequest) {
+export const POST = withAuthNext(async ({ req, user }) => {
     const body = (await req.json()) as HandleUploadBody;
 
     try {
         const json = await handleUpload({
             body,
-            request: req,
+            // NextRequest is compatible with Request; cast for TS
+            request: req as Request,
 
-            // 1) Auth + token config
-            // app/api/thumbnails/handle-upload/route.ts
-
+            // 1) Issue token for Blob upload (user is already authenticated by wrapper)
             onBeforeGenerateToken: async (_pathname, clientPayload) => {
-                const user = await getCurrentUser();
-                if (!user) throw new Error("Unauthorized");
-
+                // clientPayload came from your client upload() call
                 const cp = clientPayload ? JSON.parse(clientPayload) : {};
 
                 return {
                     allowedContentTypes: ["image/jpeg", "image/webp", "image/png"],
                     addRandomSuffix: false,
                     maximumSizeInBytes: 2_000_000,
-                    // ✅ Stringify explicitly
+                    // Carry the userId + client payload forward so we can trust it after upload
                     tokenPayload: JSON.stringify({
                         userId: String(user._id),
                         clientPayload: cp,
@@ -39,12 +36,10 @@ export async function POST(req: NextRequest) {
                 };
             },
 
-
-            // 2) After Blob has stored the file, persist in Mongo
-            onUploadCompleted: async ({ blob, tokenPayload }) => {
+            // 2) After Blob stores the file, persist thumbnail in Mongo
+            onUploadCompleted: async ({ blob, tokenPayload }: { blob: PutBlobResult; tokenPayload?: any }) => {
                 await connectDB();
 
-                // ✅ Parse robustly
                 const parsed: unknown =
                     tokenPayload == null
                         ? {}
@@ -52,7 +47,6 @@ export async function POST(req: NextRequest) {
                             ? JSON.parse(tokenPayload)
                             : tokenPayload;
 
-                // Type helpers
                 type ThumbPayload = {
                     videoBlobPath: string;
                     width?: number;
@@ -69,16 +63,9 @@ export async function POST(req: NextRequest) {
                 if (!userId) throw new Error("Missing userId");
                 if (!clientPayload?.videoBlobPath) throw new Error("Missing videoBlobPath");
 
-                // Now safely destructure (no default = {})
-                const {
-                    videoBlobPath,
-                    width,
-                    height,
-                    timecodeSec,
-                    isCover,
-                } = clientPayload;
+                const { videoBlobPath, width, height, timecodeSec, isCover } = clientPayload;
 
-                // Find the target video by its unique blobPath + ownership
+                // Ensure the uploader owns the target video
                 const video = await Video.findOne({
                     blobPath: videoBlobPath,
                     ownerId: userId,
@@ -88,7 +75,7 @@ export async function POST(req: NextRequest) {
                     throw new Error("Video not found or not owned by user");
                 }
 
-                // If this should be the cover, unset any existing cover first to satisfy unique index
+                // If this should be cover, unset existing cover first (unique partial index)
                 if (isCover) {
                     await Thumbnail.updateMany(
                         { videoId: video._id, isCover: true },
@@ -96,19 +83,18 @@ export async function POST(req: NextRequest) {
                     );
                 }
 
-                // Create the thumbnail document
+                // Create thumbnail doc (handle race on unique index gracefully)
                 try {
                     await Thumbnail.create({
                         videoId: video._id,
                         url: blob.url,
-                        path: blob.pathname,           // unique
+                        path: blob.pathname,
                         width,
                         height,
                         isCover,
                         timecodeSec,
                     });
                 } catch (e: any) {
-                    // If unique cover race happens, fall back to non-cover
                     if (isCover && /E11000/.test(String(e?.message))) {
                         await Thumbnail.create({
                             videoId: video._id,
@@ -129,6 +115,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(json);
     } catch (err: any) {
         console.error("thumbnail handle-upload error:", err);
-        return NextResponse.json({ error: err.message ?? "Upload error" }, { status: 400 });
+        return NextResponse.json({ error: err?.message ?? "Upload error" }, { status: 400 });
     }
-}
+});
