@@ -23,9 +23,27 @@ export default function UploadedPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this video?")) return;
 
-        // api call to delete
-        // sujal part
+        try {
+            const res = await fetch(`/api/videos/${id}/delete`, {
+                method: "DELETE",
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                alert(data?.error || "Failed to delete video");
+                return;
+            }
+
+            // Remove the deleted video from the UI list
+            setMyVideos((prev) => prev.filter((v) => v._id !== id));
+
+            alert("Video deleted successfully!");
+        } catch (err) {
+            console.error(err);
+            alert("Something went wrong while deleting the video");
+        }
     };
+
 
     return (
         <div className="p-8 bg-white rounded-2xl shadow-md animate-slideUp">
