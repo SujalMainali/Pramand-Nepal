@@ -1,7 +1,7 @@
 // app/api/thumbnails/handle-upload/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
 
@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/utilities/auth";
 import Video from "@/database/models/video";
 import Thumbnail from "@/database/models/Thumbnail";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     const body = (await req.json()) as HandleUploadBody;
 
     try {

@@ -1,13 +1,13 @@
 // app/api/videos/[id]/approve/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/database/mongoose";
 import { getCurrentUser } from "@/utilities/auth";
 import Video from "@/database/models/video";
 import mongoose from "mongoose";
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
     try {
         const user = await getCurrentUser();
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,7 +17,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const { id } = params;
+        const { id } = await ctx.params;
         if (!mongoose.isValidObjectId(id)) {
             return NextResponse.json({ error: "Invalid id" }, { status: 400 });
         }

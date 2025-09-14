@@ -1,7 +1,7 @@
 // app/api/moderation/videos/hidden/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/database/mongoose";
 import { getCurrentUser } from "@/utilities/auth";
 import mongoose from "mongoose";
@@ -11,7 +11,7 @@ import Thumbnail from "@/database/models/Thumbnail";
 // OPTIONAL: if you have a User model file path, you don't need to import it for $lookup;
 // we'll join via collection name "users" in the pipeline.
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
     try {
         const user = await getCurrentUser();
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,7 +1,7 @@
 // app/api/videos/handle-upload/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/utilities/auth";
 import type { PutBlobResult } from "@vercel/blob";
 import mongoose from "mongoose";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     const body = (await req.json()) as HandleUploadBody;
 
     try {

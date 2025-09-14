@@ -2,7 +2,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/database/mongoose";
 import User from "@/database/models/User";
@@ -21,7 +21,7 @@ function badRequest(message: string, code = 400) {
     return NextResponse.json({ success: false, error: message }, { status: code });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         await connectDB();
 

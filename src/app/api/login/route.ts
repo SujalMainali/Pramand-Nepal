@@ -1,7 +1,7 @@
 // app/api/login/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { connectDB } from "@/database/mongoose";
 import User from "@/database/models/User";
@@ -13,7 +13,7 @@ type ReqBody = {
     password?: string;
 };
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         await connectDB();
 
