@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
                 if (!userId) throw new Error("Missing userId");
 
                 const status = role === "general" ? "hidden" : "ready";
-
+                console.log(`New upload by user ${userId} (${role ?? "general"}), status: ${status}`);
                 await Video.create({
                     ownerId: new mongoose.Types.ObjectId(userId),
                     title: (clientPayload?.title ?? "").toString().trim().slice(0, 200),
