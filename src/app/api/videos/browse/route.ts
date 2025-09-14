@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/database/mongoose";
 import Video from "@/database/models/video";
-import "@/database/models/thumbnail";
+import Thumbnail from "@/database/models/Thumbnail";
 
 export const runtime = "nodejs";
 
