@@ -1,23 +1,27 @@
 "use client";
-
 import { useRouter } from "next/navigation";
 import VideoCard from "./VideoCard";
 
+export type VideoItem = {
+  _id: string;
+  title: string;
+  createdAt: string;
+  blobUrl: string;
+  downloadUrl?: string;
+  thumbnail?: { url?: string | null };
+};
+
 type ContentSectionProps = {
   title: string;
-  videos: { title: string; date: string }[];
+  videos: VideoItem[];
   showUpload?: boolean;
 };
 
-export default function ContentSection({
-  title,
-  videos,
-  showUpload = false,
-}: ContentSectionProps) {
+export default function ContentSection({ title, videos, showUpload = false }: ContentSectionProps) {
   const router = useRouter();
 
   const handleUploadClick = () => {
-    router.push("/upload");
+    router.push("/upload-video"); // <-- use your actual upload route
   };
 
   return (
@@ -27,6 +31,7 @@ export default function ContentSection({
           {title}
           <span className="absolute -bottom-[14px] left-0 w-16 h-1 bg-blue-500 rounded" />
         </h2>
+
         {showUpload && (
           <button
             onClick={handleUploadClick}
@@ -37,25 +42,33 @@ export default function ContentSection({
         )}
       </div>
 
-      <div
-        className={`grid gap-6 ${
-          showUpload
-            ? "grid-rows-1 grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
-            : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3"
-        }`}
-      >
-        {videos.map((v, i) => (
-          <VideoCard key={i} title={v.title} date={v.date} />
-        ))}
-      </div>
+      {videos.length === 0 ? (
+        <div className="rounded-md border border-dashed border-gray-300 p-8 text-center text-gray-500">
+          Nothing here yet.
+        </div>
+      ) : (
+        <div className={`grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3`}>
+          {videos.map((v) => (
+            <VideoCard
+              key={v._id}
+              title={v.title}
+              createdAt={v.createdAt}
+              thumbnailUrl={v.thumbnail?.url || undefined}
+              watchUrl={v.blobUrl}
+              downloadUrl={v.downloadUrl}
+            />
+          ))}
+        </div>
+      )}
 
-      {showUpload && (
+      {showUpload && videos.length > 0 && (
         <div className="mt-6 flex justify-center">
-          <button
+          <a
+            href="/uploads"
             className="px-6 py-2 rounded-full border-2 border-blue-500 text-blue-600 font-semibold hover:bg-blue-500 hover:text-white transition-all"
           >
             View All
-          </button>
+          </a>
         </div>
       )}
     </div>
