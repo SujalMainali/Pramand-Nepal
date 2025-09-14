@@ -19,54 +19,63 @@ export async function POST(req: Request) {
             request: req,
 
             // 1) Auth + token config
+            // app/api/thumbnails/handle-upload/route.ts
+
             onBeforeGenerateToken: async (_pathname, clientPayload) => {
                 const user = await getCurrentUser();
                 if (!user) throw new Error("Unauthorized");
 
                 const cp = clientPayload ? JSON.parse(clientPayload) : {};
-                if (!cp?.videoBlobPath) throw new Error("Missing videoBlobPath");
 
                 return {
                     allowedContentTypes: ["image/jpeg", "image/webp", "image/png"],
-                    addRandomSuffix: false,            // path is deterministic
-                    maximumSizeInBytes: 2_000_000,     // keep thumbs small
+                    addRandomSuffix: false,
+                    maximumSizeInBytes: 2_000_000,
+                    // ✅ Stringify explicitly
                     tokenPayload: JSON.stringify({
                         userId: String(user._id),
                         clientPayload: cp,
                     }),
-                    // cacheControlMaxAge: 31536000,   // optional year-long cache
                 };
             },
 
+
             // 2) After Blob has stored the file, persist in Mongo
-            onUploadCompleted: async ({
-                blob,
-                tokenPayload,
-            }: {
-                blob: PutBlobResult;
-                tokenPayload?: any;
-            }) => {
+            onUploadCompleted: async ({ blob, tokenPayload }) => {
                 await connectDB();
 
-                const { userId, clientPayload = { videoBlobPath: "" } } = (tokenPayload ?? {}) as {
-                    userId?: string;
-                    clientPayload?: {
-                        videoBlobPath: string;
-                        width?: number;
-                        height?: number;
-                        timecodeSec?: number;
-                        isCover?: boolean;
-                    };
+                // ✅ Parse robustly
+                const parsed: unknown =
+                    tokenPayload == null
+                        ? {}
+                        : typeof tokenPayload === "string"
+                            ? JSON.parse(tokenPayload)
+                            : tokenPayload;
+
+                // Type helpers
+                type ThumbPayload = {
+                    videoBlobPath: string;
+                    width?: number;
+                    height?: number;
+                    timecodeSec?: number;
+                    isCover?: boolean;
                 };
 
-                if (!userId) throw new Error("Missing userId");
+                const { userId, clientPayload } = (parsed as {
+                    userId?: string;
+                    clientPayload?: ThumbPayload;
+                });
 
+                if (!userId) throw new Error("Missing userId");
+                if (!clientPayload?.videoBlobPath) throw new Error("Missing videoBlobPath");
+
+                // Now safely destructure (no default = {})
                 const {
                     videoBlobPath,
-                    width = null,
-                    height = null,
-                    timecodeSec = null,
-                    isCover = false,
+                    width,
+                    height,
+                    timecodeSec,
+                    isCover,
                 } = clientPayload;
 
                 // Find the target video by its unique blobPath + ownership
