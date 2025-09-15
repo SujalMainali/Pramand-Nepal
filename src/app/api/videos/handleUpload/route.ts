@@ -89,6 +89,14 @@ export async function POST(req: NextRequest) {
                     height: clientPayload?.height ?? null,
                     status,
                     uploadedAt: new Date(),
+
+                    // --- AI Processing defaults ---
+                    analyzed: false,
+                    analysisStatus: "pending",
+                    analysisRefId: null,
+                    objectsTop: [],
+                    claimedAt: null,
+                    workerId: null,
                 });
             },
         });
