@@ -34,6 +34,7 @@ export default function LoginPage() {
       });
 
       const data = await res.json();
+      setLoading(false);
 
       if (!res.ok) {
         alert(data.error || "Login failed");
@@ -41,7 +42,6 @@ export default function LoginPage() {
       }
 
       window.location.href = "/";
-      setLoading(false);
     } catch (err) {
       console.error("❌ Login error:", err);
       alert("Something went wrong. Try again.");
