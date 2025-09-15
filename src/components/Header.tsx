@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/utilities/auth";
-import { logout } from "@/utilities/logout";
+import LogoutButton from "@/components/LogoutButton";
 
 export default async function Header() {
   const user = await getCurrentUser().catch(() => null);
@@ -27,16 +27,15 @@ export default async function Header() {
           </Link>
         )}
 
-        {user && (
-          <form action={logout}>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-red-500 text-white font-medium text-lg rounded hover:bg-red-600 transition"
-            >
-              Logout
+        {!user && (
+          <Link href="/login">
+            <button className="px-6 py-2 bg-blue-500 text-white font-medium text-lg rounded hover:bg-blue-600 transition">
+              Login
             </button>
-          </form>
+          </Link>
         )}
+
+        {user && <LogoutButton />}
       </div>
     </div>
   );

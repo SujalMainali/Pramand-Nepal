@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-gray-50">
+      <body className="h-screen flex flex-col bg-gray-50">
         <LoadingProvider>
         <Header />
         {children}

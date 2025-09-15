@@ -75,7 +75,7 @@ export default function ModerationPage() {
 
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-10">
+        <div className="flex-1 bg-gray-50 pb-10">
             <div className="mx-auto max-w-6xl px-4 pt-10">
                 <h2 className="mb-6 text-2xl font-bold text-gray-800">
                     Videos Pending Moderation
