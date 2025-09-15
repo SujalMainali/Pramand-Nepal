@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from "react";
 import ContentSection, { VideoItem } from "../components/ContentSection";
+import {
+    getSelfCache,
+    setSelfCache,
+    readSelfFromSession,
+} from "@/utilities/myVideosCache";
 
-// --- simple in-memory cache for the public browse feed ---
+// --- public browse cache (unchanged) ---
 let browseCache: { items: VideoItem[]; ts: number } | null = null;
-const BROWSE_TTL_MS = 60_000; // keep in sync with API s-maxage=60
+const BROWSE_TTL_MS = 60_000;
 
 export default function HomeClient() {
     const [myVideos, setMyVideos] = useState<VideoItem[]>([]);
@@ -13,35 +18,46 @@ export default function HomeClient() {
     const [loading, setLoading] = useState({ mine: true, all: true });
 
     useEffect(() => {
-        // --- private list: fetch fresh every time (no-store) ---
+        // SELF (private): memory + sessionStorage prefill, then background refresh
         (async () => {
+            let prefilled = false;
+
+            const mem = getSelfCache();
+            if (mem) {
+                setMyVideos(mem as VideoItem[]);
+                prefilled = true;
+            } else {
+                const ss = readSelfFromSession();
+                if (ss) {
+                    setMyVideos(ss as VideoItem[]);
+                    prefilled = true;
+                }
+            }
+            setLoading((s) => ({ ...s, mine: !prefilled }));
+
             try {
-                setLoading((s) => ({ ...s, mine: true }));
                 const res = await fetch("/api/videos/self", { cache: "no-store" });
-                setMyVideos(res.ok ? (await res.json()).items ?? [] : []);
+                const items: VideoItem[] = res.ok ? (await res.json()).items ?? [] : [];
+                setMyVideos(items);
+                setSelfCache(items);
             } finally {
                 setLoading((s) => ({ ...s, mine: false }));
             }
         })();
 
-        // --- public browse: use in-memory cache + CDN-cached response ---
+        // BROWSE (public): in-memory + CDN
         (async () => {
             const now = Date.now();
             const cached = browseCache && now - browseCache.ts < BROWSE_TTL_MS;
-
             if (cached) {
-                // instant render from memory
                 setAllVideos(browseCache!.items);
                 setLoading((s) => ({ ...s, all: false }));
                 return;
             }
-
             try {
                 setLoading((s) => ({ ...s, all: true }));
-                // IMPORTANT: no `cache: "no-store"` here—let CDN/browser caching work
                 const res = await fetch("/api/videos/browse");
                 const items: VideoItem[] = res.ok ? (await res.json()).items ?? [] : [];
-                // update component + cache
                 setAllVideos(items);
                 browseCache = { items, ts: now };
             } finally {
@@ -53,15 +69,8 @@ export default function HomeClient() {
     return (
         <div className="min-h-screen bg-gray-50 pb-10">
             <div className="max-w-6xl pt-10 mx-auto px-4">
-                <ContentSection
-                    title="My Uploaded Videos"
-                    showUpload
-                    videos={loading.mine ? [] : myVideos}
-                />
-                <ContentSection
-                    title="Browse Videos"
-                    videos={loading.all ? [] : allVideos}
-                />
+                <ContentSection title="My Uploaded Videos" showUpload videos={loading.mine ? [] : myVideos} />
+                <ContentSection title="Browse Videos" videos={loading.all ? [] : allVideos} />
             </div>
         </div>
     );

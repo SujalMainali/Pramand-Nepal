@@ -7,6 +7,7 @@ import { upload } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
 import { generateThumbnailFromFile } from "@/utilities/thumbnail";
 import { useLoading } from "@/context/LoadingContext";
+import { invalidateSelfCache } from "@/utilities/myVideosCache";
 
 export default function UploadVideo() {
 
@@ -46,6 +47,7 @@ export default function UploadVideo() {
 
             toast.success(`Video uploaded! ✅ URL: ${videoBlob.url}`);
             console.log("Upload details:", videoBlob);
+            invalidateSelfCache();
 
             // Create a cover at ~2s, max 640px wide
             const thumb = await generateThumbnailFromFile(videoFile, {

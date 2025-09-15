@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { VideoItem } from "@/components/ContentSection";
 import VideoRow from "@/components/VideoRow";
 import { useLoading } from "@/context/LoadingContext";
+import { invalidateSelfCache } from "@/utilities/myVideosCache";
 
 export default function UploadedPage() {
     const [myVideos, setMyVideos] = useState<VideoItem[]>([]);
@@ -38,6 +39,7 @@ export default function UploadedPage() {
             // Remove the deleted video from the UI list
             setMyVideos((prev) => prev.filter((v) => v._id !== id));
 
+            invalidateSelfCache();
             alert("Video deleted successfully!");
         } catch (err) {
             console.error(err);
