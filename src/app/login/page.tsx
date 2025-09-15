@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/utilities/auth";
-import LoginPage from "@/pages/LoginPage"; // your client component
+import LoginPage from "@/app/login/LoginPage"; // your client component
 
 export default async function Login() {
   const user = await getCurrentUser();

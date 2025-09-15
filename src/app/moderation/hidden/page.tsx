@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/utilities/auth";
-import ModerationPage from "@/pages/ModerationPage"; // your client component
+import ModerationPage from "@/app/moderation/hidden/ModerationPage"; // your client component
 
 export default async function Moderation() {
   const user = await getCurrentUser();

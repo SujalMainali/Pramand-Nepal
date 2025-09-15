@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/utilities/auth";
-import UploadedPage from "@/pages/UploadedPage"; // your client component
+import UploadedPage from "@/app/upload/UploadedPage"; // your client component
 
 export default async function Uploaded() {
   const user = await getCurrentUser();

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/utilities/auth";
-import RegisterPage from "@/pages/RegisterPage"; // your client component
+import RegisterPage from "@/app/register/RegisterPage"; // your client component
 
 export default async function Register() {
   const user = await getCurrentUser();

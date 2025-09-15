@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/utilities/auth";
-import UploadVideo from "@/pages/UploadVideo"; // your client component
+import UploadVideo from "@/app/upload/UploadVideo"; // your client component
 
 export default async function Upload() {
   const user = await getCurrentUser();
