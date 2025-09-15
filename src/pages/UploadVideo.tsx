@@ -6,8 +6,12 @@ import toast from "react-hot-toast";
 import { upload } from "@vercel/blob/client";
 import type { PutBlobResult } from "@vercel/blob";
 import { generateThumbnailFromFile } from "@/utilities/thumbnail";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function UploadVideo() {
+
+    const { setLoading } = useLoading();
+
     const [videoFile, setVideoFile] = useState<File | null>(null);
     const [description, setDescription] = useState("");
     const [address, setAddress] = useState("");
@@ -22,6 +26,7 @@ export default function UploadVideo() {
 
         try {
             setBusy(true);
+            setLoading(true);
 
             // Path inside your Blob store (folder prefix is optional)
             const pathname = `videos/${videoFile.name}`;
@@ -36,6 +41,8 @@ export default function UploadVideo() {
                     address,
                 }),
             });
+
+            setLoading(false);
 
             toast.success(`Video uploaded! ✅ URL: ${videoBlob.url}`);
             console.log("Upload details:", videoBlob);

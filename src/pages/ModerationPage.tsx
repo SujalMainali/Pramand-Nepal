@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import VideoRow from "@/components/VideoRow"; // adjust path if needed
+import { useLoading } from "@/context/LoadingContext";
 
 type Item = {
     _id: string;
@@ -15,8 +16,9 @@ type Item = {
 };
 
 export default function ModerationPage() {
+
+    const { isLoading, setLoading } = useLoading();
     const [items, setItems] = useState<Item[]>([]);
-    const [loading, setLoading] = useState(true);
 
     async function load() {
         try {
@@ -79,7 +81,7 @@ export default function ModerationPage() {
                     Videos Pending Moderation
                 </h2>
 
-                {loading ? (
+                {isLoading ? (
                     <div className="text-gray-500">Loading…</div>
                 ) : items.length === 0 ? (
                     <div className="rounded-md border border-dashed border-gray-300 p-8 text-center text-gray-500">

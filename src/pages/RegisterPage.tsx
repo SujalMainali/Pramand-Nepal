@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useLoading } from "@/context/LoadingContext";
 import toast, { Toaster } from "react-hot-toast";
 
 export default function RegisterPage() {
+
+  const { setLoading } = useLoading();
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -31,6 +35,7 @@ export default function RegisterPage() {
       return;
     }
 
+    setLoading(true);
 
     try {
       const response = await fetch("/api/userData", {
@@ -41,11 +46,15 @@ export default function RegisterPage() {
         body: JSON.stringify(formData),
       });
 
+      setLoading(false);
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to register.");
       }
+
+      
 
       toast.success("Registration successful!");
 

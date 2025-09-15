@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { VideoItem } from "@/components/ContentSection";
 import VideoRow from "@/components/VideoRow";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function UploadedPage() {
     const [myVideos, setMyVideos] = useState<VideoItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { isLoading, setLoading } = useLoading();
 
     useEffect(() => {
         (async () => {
@@ -52,7 +53,7 @@ export default function UploadedPage() {
                 <span className="absolute -bottom-[14px] left-0 w-16 h-1 bg-blue-500 rounded" />
             </h1>
 
-            {loading ? (
+            {isLoading ? (
                 <p className="text-gray-500">Loading...</p>
             ) : myVideos.length === 0 ? (
                 <div className="rounded-md border border-dashed border-gray-300 p-8 text-center text-gray-500">

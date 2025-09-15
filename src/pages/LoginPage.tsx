@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useLoading } from "@/context/LoadingContext";
 
 export default function LoginPage() {
+
+    const { setLoading } = useLoading();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -18,6 +21,7 @@ export default function LoginPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    setLoading(true);
     e.preventDefault();
 
     try {
@@ -37,6 +41,7 @@ export default function LoginPage() {
       }
 
       window.location.href = "/";
+      setLoading(false);
     } catch (err) {
       console.error("❌ Login error:", err);
       alert("Something went wrong. Try again.");
